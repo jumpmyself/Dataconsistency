@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -17,47 +18,48 @@ func GetInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	//1.查看缓存是否存在
-	userID := 1 // 应该从请求参数中获取真实ID
+	userIDStr := r.URL.Query().Get("id")
+	userID, err := strconv.Atoi(userIDStr)
+	if err != nil {
+		http.Error(w, `{"error": "无效的用户ID"}`, http.StatusBadRequest)
+		return
+	}
 	key := fmt.Sprintf("user_%d", userID)
 	cache, err := db.Rdb.Get(context.Background(), key).Result()
 	if err == nil {
-		w.Header().Set("Cache-Control", "application/json")
-		response := map[string]interface{}{
-			"source": "cache",
-			"data":   cache,
-		}
-		err := json.NewEncoder(w).Encode(response)
-		if err != nil {
+		// 缓存命中：返回缓存数据并明确标注来源
+		var cachedData db.Info
+		if err := json.Unmarshal([]byte(cache), &cachedData); err == nil {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"source": "redis",
+				"data":   cachedData,
+			})
 			return
 		}
-		return
 	}
 	//2.如果不存在查询数据库
 	t := db.Info{}
-	ret, err := t.GetInfo(1)
+	ret, err := t.GetInfo(userID)
 	if err != nil {
 		return
 	}
 
-	//3.如果不存在设置ret
+	//3.并设置ret
 	if ret != nil && ret.ID > 0 {
-		if err := db.Rdb.Set(context.Background(), key, fmt.Sprint(ret), time.Second*5).Err(); err != nil {
-			fmt.Printf("缓存设置失败:%v\n", err)
-		}
+		// 序列化数据为JSON
+		dataBytes, _ := json.Marshal(ret)
+		_ = db.Rdb.Set(context.Background(), key, string(dataBytes), 10*time.Second).Err()
 	} else {
-		//处理数据不存在的情况（防止缓存穿透）
-		// 缓存空值并设置较短过期时间
+		// 防止缓存穿透：存储空值（短时间）
 		_ = db.Rdb.Set(context.Background(), key, "null", 30*time.Second).Err()
 	}
 
 	//4.返回结果
 	w.Header().Set("Content-Type", "application/json")
-	response := map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"source": "database",
 		"data":   ret,
-	}
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		return
-	}
+	})
+
 }
