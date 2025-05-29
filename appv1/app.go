@@ -1,8 +1,8 @@
 package appv1
 
 import (
-	"Dataconsistency/appv0/db"
-	"Dataconsistency/appv0/logic"
+	"Dataconsistency/appv1/db"
+	"Dataconsistency/appv1/logic"
 	"fmt"
 	"net/http"
 )
@@ -14,8 +14,8 @@ func Run() {
 
 	//2.注册路由
 	http.HandleFunc("/get_name", logic.GetInfo)
-	http.HandleFunc("/set_name_w0", logic.SetInfoW0)
-	http.HandleFunc("/set_name_w1", logic.SetInfoW1)
+	http.HandleFunc("/set_name_w2", logic.SetInfoW2)
+	http.HandleFunc("/set_name_w3", logic.SetInfoW3)
 
 	//3.启动http服务
 	fmt.Println("server started at http://127.0.0.1:8080")
