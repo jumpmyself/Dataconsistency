@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/avast/retry-go"
 	"net/http"
 	"strconv"
 	"time"
@@ -128,6 +129,64 @@ func SetInfoW3(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error": "Redis expire删除失败"}`, http.StatusInternalServerError)
 		return
 	}
+
+	// 向客户端发送响应
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"code": http.StatusOK,
+		"id":   userID,
+		"data": "先写数据库、再设置过期时间删除redis",
+	})
+}
+
+// 增加重试机制
+func setCache(key string) error {
+	return db.Rdb.PExpire(context.TODO(), key, time.Millisecond*200).Err()
+}
+
+// SetInfoW4 增加重试使用"github.com/avast/retry-go"包、默认是10次
+func SetInfoW4(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "只支持 Get 请求", http.StatusMethodNotAllowed)
+		return
+	}
+
+	UserName := r.URL.Query().Get("name")
+	userIDStr := r.URL.Query().Get("id")
+	userID, err := strconv.Atoi(userIDStr)
+	if err != nil {
+		http.Error(w, `{"error": "无效的用户ID"}`, http.StatusBadRequest)
+		return
+	}
+	info := db.Info{}
+	err = info.Save(userID, UserName)
+	if err != nil {
+		http.Error(w, `{"error": "数据库写入失败"}`, http.StatusInternalServerError)
+		return
+	}
+
+	//这部分是重试机制、但是一般会设置超时时间、重试10次、这里时间太长了、需要改成异步的方式
+	//key := fmt.Sprintf("user_%d", userID)
+	//err = retry.Do(func() error {
+	//	return setCache(key)
+	//})
+	//if err != nil {
+	//	http.Error(w, `{"error": "重试设置缓存失败"}`, http.StatusInternalServerError)
+	//	return
+	//}
+
+	//这里起个协程、异步的方式重试、但是无法及时获取错误信息
+	go func() {
+		key := fmt.Sprintf("user_%d", userID)
+		err = retry.Do(func() error {
+			return setCache(key)
+		})
+		if err != nil {
+			http.Error(w, `{"error": "重试设置缓存失败"}`, http.StatusInternalServerError)
+			//TODO 增加日志写入、并且Level等级较高的错误、通过监控错误日志的方式、及时发现缓存不一致现象
+			return
+		}
+	}()
 
 	// 向客户端发送响应
 	w.Header().Set("Content-Type", "application/json")
