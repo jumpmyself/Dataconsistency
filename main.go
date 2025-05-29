@@ -1,6 +1,6 @@
 package main
 
-import app "Dataconsistency/appv1"
+import app "Dataconsistency/appv2"
 
 func main() {
 

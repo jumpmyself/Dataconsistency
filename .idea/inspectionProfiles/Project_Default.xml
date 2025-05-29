@@ -1,0 +1,10 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="GoDfaErrorMayBeNotNil" enabled="true" level="WARNING" enabled_by_default="true" editorAttributes="ERRORS_ATTRIBUTES">
+      <methods>
+        <method importPath="Dataconsistency/appv0/db" receiver="*Info" name="GetInfo" />
+      </methods>
+    </inspection_tool>
+  </profile>
+</component>
