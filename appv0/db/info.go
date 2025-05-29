@@ -27,3 +27,7 @@ func (i *Info) GetInfo(id int) (*Info, error) {
 	}
 	return &ret, nil
 }
+
+func (i *Info) Save(id int, name string) error {
+	return DB.Table(i.TableName()).Where("id = ?", id).Update("name", name).Error
+}
