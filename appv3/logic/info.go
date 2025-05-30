@@ -2,7 +2,6 @@ package logic
 
 import (
 	"Dataconsistency/appv3/db"
-	"Dataconsistency/appv3/schedule"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -99,9 +98,6 @@ func SetInfoW0(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error": "数据库写入失败"}`, http.StatusInternalServerError)
 		return
 	}
-
-	// 使用schedule包提供的函数添加到队列
-	schedule.AddToQueue(userID) // 这里调用新的导出函数
 
 	// 返回响应
 	w.Header().Set("Content-Type", "application/json")
