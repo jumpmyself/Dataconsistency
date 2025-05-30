@@ -13,7 +13,7 @@ func Run() {
 
 func updateCache() {
 	//更新缓存数据
-	key := fmt.Sprintf("book_%s", 1)
+	key := fmt.Sprintf("book_%v", 1)
 	t := time.NewTicker(5 * time.Second)
 	for range t.C {
 		info := db.Info{}
