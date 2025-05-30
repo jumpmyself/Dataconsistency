@@ -4,5 +4,6 @@
     <file url="file://$PROJECT_DIR$/appv0/docs/sql/basic.sql" dialect="GenericSQL" />
     <file url="file://$PROJECT_DIR$/appv1/docs/sql/basic.sql" dialect="GenericSQL" />
     <file url="file://$PROJECT_DIR$/appv2/docs/sql/basic.sql" dialect="GenericSQL" />
+    <file url="file://$PROJECT_DIR$/appv3/docs/sql/basic.sql" dialect="GenericSQL" />
   </component>
 </project>
