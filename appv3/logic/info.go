@@ -76,6 +76,70 @@ func GetInfo(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// GetInfoR0 缓存回溯后门 - 强制刷新指定用户的缓存
+func GetInfoR0(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "只支持 GET 请求", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// 身份验证 - 仅限管理端使用
+	if !isAdminRequest(r) {
+		http.Error(w, `{"error": "未授权访问"}`, http.StatusUnauthorized)
+		return
+	}
+
+	userIDStr := r.URL.Query().Get("id")
+	cacheParam := r.URL.Query().Get("cache")
+
+	userID, err := strconv.Atoi(userIDStr)
+	if err != nil {
+		http.Error(w, `{"error": "无效的用户ID"}`, http.StatusBadRequest)
+		return
+	}
+
+	key := fmt.Sprintf("user_%d", userID)
+
+	// 直接查询数据库（跳过缓存）
+	info := db.Info{}
+	data, err := info.GetInfo(userID)
+	if err != nil {
+		http.Error(w, `{"error": "数据库查询失败"}`, http.StatusInternalServerError)
+		return
+	}
+
+	// 刷新缓存（无论cache参数如何）
+	if data != nil && data.ID > 0 {
+		dataBytes, err := json.Marshal(data)
+		if err == nil {
+			// 统一设置较长的缓存时间（区别于常规业务缓存）
+			_ = db.Rdb.Set(context.Background(), key, string(dataBytes), 5*time.Minute).Err()
+		}
+	} else {
+		// 防止缓存穿透
+		_ = db.Rdb.Set(context.Background(), key, "null", 5*time.Minute).Err()
+	}
+
+	// 标识这是强制更新的结果
+	source := "强制更新缓存（数据库查询）"
+	if cacheParam == "true" {
+		source = "缓存强制刷新完成"
+	}
+
+	// 返回结果
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"source": source,
+		"data":   data,
+	})
+}
+
+// 简单管理端验证（应根据实际安全要求加强）
+func isAdminRequest(r *http.Request) bool {
+	token := r.Header.Get("X-Admin-Token")
+	return token == "secure_admin_token_123" // 应替换为实际验证逻辑
+}
+
 // SetInfoW0 只更新数据库并触发异步缓存更新
 func SetInfoW0(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
